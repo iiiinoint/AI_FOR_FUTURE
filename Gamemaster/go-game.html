@@ -5,6 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>围棋 - 人机对战</title>
     <style>
+        /* ==================== CSS Variables ==================== */
+        :root {
+            /* 浅色模式配色 */
+            --bg-primary: #F5F5F7;
+            --bg-secondary: #FFFFFF;
+            --bg-tertiary: #E8E8ED;
+            --text-primary: #1D1D1F;
+            --text-secondary: #86868B;
+            --text-tertiary: #C7C7CC;
+            --system-blue: #007AFF;
+            --system-blue-hover: #0051D5;
+            --system-blue-active: #004FC4;
+
+            /* 语义配色 */
+            --success-green: #34C759;
+            --warning-orange: #FF9500;
+            --danger-red: #FF3B30;
+        }
+
+        /* ==================== Global Styles ==================== */
         * {
             margin: 0;
             padding: 0;
@@ -12,77 +32,124 @@
         }
 
         body {
-            font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display',
+                         'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: var(--bg-primary);
             min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
             padding: 20px;
+            color: var(--text-primary);
         }
 
         #game-container {
-            background: white;
-            border-radius: 20px;
-            padding: 30px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            max-width: 900px;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(50px) saturate(180%);
+            -webkit-backdrop-filter: blur(50px) saturate(180%);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow:
+                0 0 0 1px rgba(0, 0, 0, 0.04),
+                0 4px 8px rgba(0, 0, 0, 0.04),
+                0 16px 32px rgba(0, 0, 0, 0.08);
+            max-width: 920px;
             width: 100%;
+            animation: pageTransition 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+        }
+
+        @keyframes pageTransition {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         h1 {
             text-align: center;
-            color: #333;
-            margin-bottom: 20px;
-            font-size: 2.5em;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+            color: var(--text-primary);
+            margin-bottom: 32px;
+            font-size: 40px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
         }
 
+        /* ==================== Game Info Cards ==================== */
         .game-info {
-            display: flex;
-            justify-content: space-around;
-            margin-bottom: 20px;
-            padding: 15px;
-            background: #f5f5f5;
-            border-radius: 10px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 32px;
+            background: var(--bg-tertiary);
+            border-radius: 16px;
+            padding: 20px;
         }
 
         .info-item {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 16px;
             text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+            transition: all 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+        }
+
+        .info-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
         }
 
         .info-label {
-            font-size: 14px;
-            color: #666;
-            margin-bottom: 5px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .info-value {
-            font-size: 20px;
-            font-weight: bold;
-            color: #333;
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-primary);
+            font-feature-settings: 'tnum';
         }
 
+        /* ==================== Board ==================== */
         .board-container {
             display: flex;
             justify-content: center;
-            margin-bottom: 20px;
+            margin-bottom: 32px;
         }
 
         #go-board {
             position: relative;
-            background: linear-gradient(135deg, #DCB35C 0%, #C49A3C 100%);
+            background: linear-gradient(135deg, #E8C969 0%, #D4AF37 50%, #C9A227 100%);
+            background-image:
+                repeating-linear-gradient(
+                    45deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(0, 0, 0, 0.02) 2px,
+                    rgba(0, 0, 0, 0.02) 4px
+                );
             box-shadow:
-                inset 0 0 30px rgba(0, 0, 0, 0.2),
-                0 10px 30px rgba(0, 0, 0, 0.4);
-            border-radius: 8px;
+                0 0 0 1px rgba(0, 0, 0, 0.08),
+                0 4px 12px rgba(0, 0, 0, 0.12),
+                0 24px 48px rgba(0, 0, 0, 0.16),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
             cursor: pointer;
             user-select: none;
         }
 
         .grid-line {
             position: absolute;
-            background: #000;
+            background: rgba(0, 0, 0, 0.6);
         }
 
         .grid-line.horizontal {
@@ -99,29 +166,55 @@
 
         .star-point {
             position: absolute;
-            width: 8px;
-            height: 8px;
-            background: #000;
+            width: 10px;
+            height: 10px;
+            background: rgba(0, 0, 0, 0.7);
             border-radius: 50%;
             transform: translate(-50%, -50%);
+            box-shadow:
+                0 0 0 2px rgba(0, 0, 0, 0.1),
+                0 2px 4px rgba(0, 0, 0, 0.2);
         }
 
         .stone {
             position: absolute;
             border-radius: 50%;
             transform: translate(-50%, -50%);
-            transition: all 0.15s ease;
+            transition: all 0.15s cubic-bezier(0.25, 0.1, 0.25, 1);
             cursor: default;
+            animation: stonePlace 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+        }
+
+        @keyframes stonePlace {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.5);
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(1.1);
+            }
+            100% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
         }
 
         .stone.black {
-            background: radial-gradient(circle at 30% 30%, #555, #000);
-            box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            background: radial-gradient(circle at 35% 35%, #4A4A4A 0%, #1D1D1F 40%, #000000 100%);
+            box-shadow:
+                0 0 0 1px rgba(255, 255, 255, 0.1),
+                0 2px 4px rgba(0, 0, 0, 0.3),
+                0 8px 16px rgba(0, 0, 0, 0.2),
+                inset 0 -2px 4px rgba(0, 0, 0, 0.3);
         }
 
         .stone.white {
-            background: radial-gradient(circle at 30% 30%, #fff, #ddd);
-            box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            background: radial-gradient(circle at 35% 35%, #FFFFFF 0%, #F5F5F7 40%, #E8E8ED 100%);
+            box-shadow:
+                0 0 0 1px rgba(0, 0, 0, 0.1),
+                0 2px 4px rgba(0, 0, 0, 0.2),
+                0 8px 16px rgba(0, 0, 0, 0.15),
+                inset 0 -2px 4px rgba(0, 0, 0, 0.1);
         }
 
         .stone.last-move::after {
@@ -130,76 +223,103 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 8px;
-            height: 8px;
-            background: #ff4444;
+            width: 10px;
+            height: 10px;
+            background: var(--system-blue);
             border-radius: 50%;
+            box-shadow:
+                0 0 0 3px rgba(0, 122, 255, 0.3),
+                0 0 12px rgba(0, 122, 255, 0.5);
+            animation: pulse 2s ease-in-out infinite;
         }
 
-        .stone.last-move.white::after {
-            background: #ff0000;
+        @keyframes pulse {
+            0%, 100% {
+                box-shadow:
+                    0 0 0 3px rgba(0, 122, 255, 0.3),
+                    0 0 12px rgba(0, 122, 255, 0.5);
+            }
+            50% {
+                box-shadow:
+                    0 0 0 5px rgba(0, 122, 255, 0.2),
+                    0 0 20px rgba(0, 122, 255, 0.4);
+            }
         }
 
+        /* ==================== Controls ==================== */
         .controls {
             display: flex;
             justify-content: center;
-            gap: 15px;
-            margin-bottom: 20px;
+            gap: 12px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
         }
 
         button {
-            padding: 12px 30px;
-            font-size: 16px;
-            font-weight: bold;
+            padding: 14px 24px;
+            font-size: 17px;
+            font-weight: 600;
             border: none;
-            border-radius: 8px;
+            border-radius: 12px;
             cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            background: var(--system-blue);
+            color: white;
+            box-shadow:
+                0 0 0 1px rgba(0, 0, 0, 0.04),
+                0 2px 4px rgba(0, 0, 0, 0.04);
+            transition: all 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
         }
 
         button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+            background: var(--system-blue-hover);
+            transform: translateY(-1px);
+            box-shadow:
+                0 0 0 1px rgba(0, 0, 0, 0.08),
+                0 4px 12px rgba(0, 0, 0, 0.08);
         }
 
         button:active {
-            transform: translateY(0);
+            background: var(--system-blue-active);
+            transform: scale(0.97);
+            transition: transform 0.1s cubic-bezier(0.25, 0.1, 0.25, 1);
         }
 
-        #pass-btn {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            color: white;
-        }
-
-        #restart-btn {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            color: white;
-        }
-
-        #undo-btn {
-            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-            color: white;
-        }
-
-        #home-btn {
-            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-            color: white;
+        button:focus-visible {
+            outline: 2px solid var(--system-blue);
+            outline-offset: 2px;
         }
 
         button:disabled {
-            opacity: 0.5;
+            opacity: 0.4;
             cursor: not-allowed;
+            background: var(--text-tertiary);
             transform: none;
         }
 
         .status {
             text-align: center;
-            font-size: 18px;
-            color: #333;
-            min-height: 27px;
+            font-size: 17px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            min-height: 24px;
+            padding: 12px;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
         }
 
+        .status.highlight {
+            color: var(--system-blue);
+            background: rgba(0, 122, 255, 0.1);
+            animation: fadeInOut 2s ease-in-out;
+        }
+
+        @keyframes fadeInOut {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* ==================== Modal ==================== */
         #modal {
             display: none;
             position: fixed;
@@ -207,10 +327,22 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.7);
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(50px) saturate(180%);
+            -webkit-backdrop-filter: blur(50px) saturate(180%);
             justify-content: center;
             align-items: center;
             z-index: 1000;
+            animation: fadeIn 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
         }
 
         #modal.active {
@@ -218,42 +350,51 @@
         }
 
         .modal-content {
-            background: white;
-            padding: 40px;
-            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(50px) saturate(180%);
+            -webkit-backdrop-filter: blur(50px) saturate(180%);
+            padding: 48px;
+            border-radius: 24px;
             text-align: center;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-            animation: modalFadeIn 0.3s ease;
+            max-width: 480px;
+            box-shadow:
+                0 0 0 1px rgba(0, 0, 0, 0.04),
+                0 4px 8px rgba(0, 0, 0, 0.04),
+                0 16px 32px rgba(0, 0, 0, 0.08);
+            animation: slideUp 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
         }
 
-        @keyframes modalFadeIn {
+        @keyframes slideUp {
             from {
                 opacity: 0;
-                transform: scale(0.8);
+                transform: translateY(40px) scale(0.95);
             }
             to {
                 opacity: 1;
-                transform: scale(1);
+                transform: translateY(0) scale(1);
             }
         }
 
         .modal-content h2 {
-            font-size: 2em;
-            margin-bottom: 20px;
-            color: #333;
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 24px;
+            color: var(--text-primary);
         }
 
         .result-details {
-            margin: 20px 0;
-            font-size: 1.2em;
-            color: #666;
+            margin: 24px 0;
+            font-size: 18px;
+            color: var(--text-secondary);
+            line-height: 1.6;
         }
 
         .winner {
-            font-size: 2.5em;
-            font-weight: bold;
-            margin: 20px 0;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-size: 48px;
+            font-weight: 800;
+            margin: 24px 0;
+            letter-spacing: -1px;
+            background: linear-gradient(135deg, #007AFF 0%, #5856D6 50%, #AF52DE 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -261,39 +402,38 @@
 
         .modal-buttons {
             display: flex;
-            gap: 15px;
+            gap: 12px;
             justify-content: center;
-            margin-top: 20px;
+            margin-top: 32px;
         }
 
         .modal-btn {
-            padding: 15px 40px;
-            font-size: 18px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 16px 32px;
+            font-size: 17px;
+            font-weight: 600;
+            background: var(--system-blue);
             color: white;
+            border: none;
+            border-radius: 12px;
+            box-shadow:
+                0 0 0 1px rgba(0, 0, 0, 0.04),
+                0 2px 4px rgba(0, 0, 0, 0.04);
+            transition: all 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
         }
 
-        @media (max-width: 768px) {
-            h1 {
-                font-size: 1.8em;
-            }
-
-            #game-container {
-                padding: 15px;
-            }
-
-            .game-info {
-                flex-wrap: wrap;
-                gap: 10px;
-            }
-
-            button {
-                padding: 10px 20px;
-                font-size: 14px;
-            }
+        .modal-btn:hover {
+            background: var(--system-blue-hover);
+            transform: translateY(-1px);
+            box-shadow:
+                0 0 0 1px rgba(0, 0, 0, 0.08),
+                0 4px 12px rgba(0, 0, 0, 0.08);
         }
 
-        /* 难度选择界面 */
+        .modal-btn:active {
+            transform: scale(0.97);
+        }
+
+        /* ==================== Difficulty Selection ==================== */
         #difficulty-modal {
             display: flex;
             position: fixed;
@@ -301,7 +441,9 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(50px) saturate(180%);
+            -webkit-backdrop-filter: blur(50px) saturate(180%);
             justify-content: center;
             align-items: center;
             z-index: 2000;
@@ -312,94 +454,231 @@
         }
 
         .difficulty-content {
-            background: white;
-            padding: 50px;
-            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(50px) saturate(180%);
+            -webkit-backdrop-filter: blur(50px) saturate(180%);
+            padding: 60px 50px;
+            border-radius: 24px;
             text-align: center;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-            animation: modalFadeIn 0.3s ease;
-            max-width: 500px;
+            box-shadow:
+                0 0 0 1px rgba(0, 0, 0, 0.04),
+                0 4px 8px rgba(0, 0, 0, 0.04),
+                0 16px 24px rgba(0, 0, 0, 0.06);
+            animation: slideUp 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+            max-width: 540px;
             width: 90%;
         }
 
         .difficulty-content h1 {
-            font-size: 3em;
-            margin-bottom: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-size: 48px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #007AFF 0%, #5856D6 50%, #AF52DE 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
         }
 
         .difficulty-content h2 {
-            font-size: 2.5em;
-            margin-bottom: 40px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            font-size: 28px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 48px;
         }
 
         .difficulty-buttons {
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 16px;
         }
 
         .difficulty-btn {
-            padding: 20px 40px;
-            font-size: 20px;
-            font-weight: bold;
+            padding: 18px 28px;
+            font-size: 17px;
+            font-weight: 600;
             border: none;
-            border-radius: 12px;
+            border-radius: 14px;
             cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .difficulty-btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-            transition: left 0.5s;
-        }
-
-        .difficulty-btn:hover::before {
-            left: 100%;
+            box-shadow:
+                0 0 0 1px rgba(0, 0, 0, 0.04),
+                0 2px 4px rgba(0, 0, 0, 0.04);
+            transition: all 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+            color: var(--text-primary);
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
         }
 
         .difficulty-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+            transform: scale(1.02);
+            box-shadow:
+                0 0 0 1px rgba(0, 0, 0, 0.08),
+                0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .difficulty-btn:active {
+            transform: scale(0.98);
+            transition: transform 0.1s cubic-bezier(0.25, 0.1, 0.25, 1);
         }
 
         .difficulty-btn.easy {
-            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
-            color: #333;
+            background: linear-gradient(135deg, rgba(52, 199, 89, 0.15) 0%, rgba(52, 199, 89, 0.08) 100%);
+            border: 1px solid rgba(52, 199, 89, 0.3);
         }
 
         .difficulty-btn.medium {
-            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
-            color: #333;
+            background: linear-gradient(135deg, rgba(255, 149, 0, 0.15) 0%, rgba(255, 149, 0, 0.08) 100%);
+            border: 1px solid rgba(255, 149, 0, 0.3);
         }
 
         .difficulty-btn.hard {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: linear-gradient(135deg, rgba(255, 59, 48, 0.15) 0%, rgba(255, 59, 48, 0.08) 100%);
+            border: 1px solid rgba(255, 59, 48, 0.3);
         }
 
         .difficulty-description {
-            margin-top: 8px;
+            margin-top: 4px;
             font-size: 14px;
+            font-weight: 400;
+            color: var(--text-secondary);
             opacity: 0.8;
-            font-weight: normal;
+        }
+
+        /* ==================== Responsive Design ==================== */
+        @media (max-width: 768px) {
+            #game-container {
+                padding: 24px 16px;
+                margin: 16px;
+                border-radius: 20px;
+            }
+
+            h1 {
+                font-size: 28px;
+                margin-bottom: 24px;
+            }
+
+            .game-info {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 12px;
+                padding: 16px;
+            }
+
+            .info-item {
+                padding: 12px;
+            }
+
+            .info-label {
+                font-size: 11px;
+            }
+
+            .info-value {
+                font-size: 20px;
+            }
+
+            .board-container {
+                margin: 0 -16px;
+                padding: 0 16px;
+                overflow: hidden;
+            }
+
+            #go-board {
+                max-width: 100%;
+                height: auto;
+            }
+
+            .controls {
+                gap: 8px;
+            }
+
+            button {
+                padding: 12px 20px;
+                font-size: 15px;
+                flex: 1 1 calc(50% - 8px);
+            }
+
+            .modal-content {
+                margin: 20px;
+                padding: 32px 24px;
+                border-radius: 20px;
+            }
+
+            .winner {
+                font-size: 32px;
+            }
+
+            .difficulty-content {
+                margin: 20px;
+                padding: 40px 24px;
+            }
+
+            .difficulty-content h1 {
+                font-size: 36px;
+            }
+
+            .difficulty-content h2 {
+                font-size: 22px;
+            }
+        }
+
+        @media (max-width: 375px) {
+            .game-info {
+                grid-template-columns: 1fr;
+            }
+
+            button {
+                flex: 1 1 100%;
+            }
+
+            #go-board {
+                border-radius: 12px;
+            }
+        }
+
+        @media (min-width: 769px) and (max-width: 1024px) {
+            #game-container {
+                max-width: 700px;
+                padding: 36px;
+            }
+
+            .game-info {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* ==================== Accessibility ==================== */
+        @media (prefers-contrast: high) {
+            button {
+                border: 2px solid currentColor;
+            }
+
+            .info-value {
+                font-weight: 800;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        @media (hover: none) and (pointer: coarse) {
+            button {
+                min-height: 44px;
+                min-width: 44px;
+            }
+
+            .difficulty-btn {
+                min-height: 48px;
+                padding: 16px 24px;
+            }
         }
     </style>
 </head>
@@ -411,15 +690,15 @@
             <h2>选择难度</h2>
             <div class="difficulty-buttons">
                 <button class="difficulty-btn easy" onclick="startGame('easy')">
-                    😊 简单
+                    简单
                     <div class="difficulty-description">随机落子，适合初学者</div>
                 </button>
                 <button class="difficulty-btn medium" onclick="startGame('medium')">
-                    🤔 中等
+                    中等
                     <div class="difficulty-description">会提子和防守，有基本策略</div>
                 </button>
                 <button class="difficulty-btn hard" onclick="startGame('hard')">
-                    😈 困难
+                    困难
                     <div class="difficulty-description">高级策略，善于切断和围地</div>
                 </button>
             </div>
@@ -453,7 +732,6 @@
         </div>
 
         <div class="controls">
-            <button id="pass-btn">停着</button>
             <button id="undo-btn">悔棋</button>
             <button id="restart-btn">重新开始</button>
             <button id="home-btn">返回主页</button>
@@ -605,7 +883,13 @@
 
             // 落子
             placeStone(x, y, color) {
+                const colorName = color === BLACK ? '黑' : '白';
+                const debug = color === WHITE; // 只为白棋（AI）打印详细日志
+
+                if (debug) console.log(`   [落子验证] 尝试${colorName}棋在 (${x}, ${y})`);
+
                 if (!this.isOnBoard(x, y) || this.grid[y][x] !== EMPTY) {
+                    if (debug) console.log(`   [落子验证] ❌ 位置无效或已被占用`);
                     return false;
                 }
 
@@ -614,14 +898,20 @@
 
                 // 检查提子（在落子后）
                 const captured = this.detectCaptures(x, y, color);
+                if (debug && captured.length > 0) {
+                    console.log(`   [落子验证] 🎯 可提 ${captured.length} 子: ${captured.map(c => `(${c.x},${c.y})`).join(', ')}`);
+                }
 
                 // 检查自杀（如果没有提子且自己也没气了）
                 if (captured.length === 0) {
                     const group = this.getGroup(x, y);
                     const liberties = this.getLiberties(group);
+                    if (debug) console.log(`   [落子验证] 棋子组大小: ${group.length}, 气数: ${liberties}`);
+
                     if (liberties === 0) {
                         // 撤销落子
                         this.grid[y][x] = EMPTY;
+                        if (debug) console.log(`   [落子验证] ❌ 自杀位置，拒绝`);
                         return false;
                     }
                 }
@@ -633,6 +923,7 @@
                     captured.forEach(stone => {
                         this.grid[stone.y][stone.x] = (color === BLACK ? WHITE : BLACK);
                     });
+                    if (debug) console.log(`   [落子验证] ❌ 打劫位置，拒绝 (劫点: ${this.koPoint.x},${this.koPoint.y})`);
                     return false;
                 }
 
@@ -665,6 +956,7 @@
                     const ownGroup = this.getGroup(x, y);
                     if (ownGroup.length === 1 && this.getLiberties(ownGroup) === 1 && opponentsGroups.some(g => g.length === 1)) {
                         this.koPoint = captured[0];
+                        if (debug) console.log(`   [落子验证] ⚠️ 打劫发生，劫点设置为 (${this.koPoint.x},${this.koPoint.y})`);
                     } else {
                         this.koPoint = null;
                     }
@@ -681,6 +973,7 @@
 
                 this.lastMove = { x, y };
 
+                if (debug) console.log(`   [落子验证] ✅ 落子成功`);
                 return true;
             }
 
@@ -829,25 +1122,41 @@
 
             // 选择落子（根据难度）
             selectMove() {
+                console.log(`🤖 AI开始思考... 难度: ${this.difficulty}`);
+
+                let move;
                 switch (this.difficulty) {
                     case 'easy':
-                        return this.selectMoveEasy();
+                        move = this.selectMoveEasy();
+                        break;
                     case 'medium':
-                        return this.selectMoveMedium();
+                        move = this.selectMoveMedium();
+                        break;
                     case 'hard':
-                        return this.selectMoveHard();
+                        move = this.selectMoveHard();
+                        break;
                     default:
-                        return this.selectMoveMedium();
+                        move = this.selectMoveMedium();
                 }
+
+                if (move) {
+                    console.log(`✅ AI决定落子于: (${move.x}, ${move.y})`);
+                } else {
+                    console.log(`⚠️ AI没有找到合适的落子位置，选择停着`);
+                }
+
+                return move;
             }
 
             // ==================== 简单难度 ====================
             selectMoveEasy() {
+                console.log(`   [简单模式] 开始搜索候选位置...`);
                 const candidates = [];
 
                 for (let y = 0; y < this.board.size; y++) {
                     for (let x = 0; x < this.board.size; x++) {
-                        if (this.board.grid[y][x] === EMPTY) {
+                        // 检查位置是否有效且为空
+                        if (this.board.isValidMove(x, y, this.color)) {
                             // 简单AI：只考虑有相邻棋子或星位的位置
                             if (this.hasNeighborStone(x, y) || this.isStarPoint(x, y)) {
                                 candidates.push({ x, y });
@@ -856,80 +1165,135 @@
                     }
                 }
 
+                console.log(`   [简单模式] 找到 ${candidates.length} 个有邻居/星位的候选位置`);
+
                 if (candidates.length === 0) {
-                    // 如果没有候选点，随机选择空位
+                    // 如果没有候选点，随机选择有效空位
+                    console.log(`   [简单模式] 没有找到理想位置，搜索所有有效空位...`);
                     for (let y = 0; y < this.board.size; y++) {
                         for (let x = 0; x < this.board.size; x++) {
-                            if (this.board.grid[y][x] === EMPTY) {
+                            if (this.board.isValidMove(x, y, this.color)) {
                                 candidates.push({ x, y });
                             }
                         }
                     }
+                    console.log(`   [简单模式] 找到 ${candidates.length} 个有效空位`);
                 }
 
                 if (candidates.length > 0) {
                     const randomIndex = Math.floor(Math.random() * candidates.length);
-                    return candidates[randomIndex];
+                    const selected = candidates[randomIndex];
+                    console.log(`   [简单模式] 随机选择第 ${randomIndex + 1}/${candidates.length} 个位置`);
+                    return selected;
                 }
 
+                console.log(`   [简单模式] ❌ 没有找到任何有效位置！`);
                 return null;
             }
 
             // ==================== 中等难度 ====================
             selectMoveMedium() {
+                console.log(`   [中等模式] 开始决策...`);
+
                 // 优先级1: 寻找提子机会
                 const captureMoves = this.findCaptureMoves();
                 if (captureMoves.length > 0) {
+                    console.log(`   [中等模式] 🎯 发现提子机会: ${captureMoves.length} 个，选择优先级最高的`);
+                    console.log(`   [中等模式] 选择位置: (${captureMoves[0].x}, ${captureMoves[0].y}), 可提 ${captureMoves[0].priority} 子`);
                     return captureMoves[0];
                 }
+                console.log(`   [中等模式] 没有提子机会`);
 
                 // 优先级2: 寻找防守机会
                 const defenseMoves = this.findDefenseMoves();
                 if (defenseMoves.length > 0) {
+                    console.log(`   [中等模式] 🛡️ 发现防守机会: ${defenseMoves.length} 个`);
+                    console.log(`   [中等模式] 选择位置: (${defenseMoves[0].x}, ${defenseMoves[0].y})`);
                     return defenseMoves[0];
                 }
+                console.log(`   [中等模式] 没有防守机会`);
 
                 // 优先级3: 位置评估
                 const candidates = this.getCandidateMoves();
                 if (candidates.length > 0) {
-                    return this.evaluateAndSelectBest(candidates);
+                    console.log(`   [中等模式] 📊 评估 ${candidates.length} 个候选位置...`);
+                    const best = this.evaluateAndSelectBest(candidates);
+                    console.log(`   [中等模式] 最佳位置: (${best.x}, ${best.y}), 得分: ${best.score.toFixed(2)}`);
+                    return best;
+                }
+                console.log(`   [中等模式] 没有理想候选位置`);
+
+                // 优先级4: 寻找任意有效位置（保底策略）
+                console.log(`   [中等模式] 🔍 搜索任意有效位置作为保底...`);
+                const anyValid = this.findAnyValidMove();
+                if (anyValid) {
+                    console.log(`   [中等模式] ✅ 找到保底位置: (${anyValid.x}, ${anyValid.y})`);
+                    return anyValid;
                 }
 
+                console.log(`   [中等模式] ❌ 真的没有找到任何有效位置！`);
                 return null;
             }
 
             // ==================== 困难难度 ====================
             selectMoveHard() {
+                console.log(`   [困难模式] 开始深度分析...`);
+
                 // 优先级1: 寻找提子机会（优先级更高）
                 const captureMoves = this.findCaptureMoves();
                 if (captureMoves.length > 0) {
+                    console.log(`   [困难模式] 🎯 发现提子机会: ${captureMoves.length} 个`);
+                    console.log(`   [困难模式] 选择位置: (${captureMoves[0].x}, ${captureMoves[0].y}), 可提 ${captureMoves[0].priority} 子`);
                     return captureMoves[0];
                 }
+                console.log(`   [困难模式] 没有提子机会`);
 
                 // 优先级2: 寻找切断机会（新增）
                 const cutMoves = this.findCutMoves();
                 if (cutMoves.length > 0) {
+                    console.log(`   [困难模式] ✂️ 发现切断机会: ${cutMoves.length} 个`);
+                    console.log(`   [困难模式] 选择位置: (${cutMoves[0].x}, ${cutMoves[0].y}), 可切断 ${cutMoves[0].priority} 组`);
                     return cutMoves[0];
                 }
+                console.log(`   [困难模式] 没有切断机会`);
 
                 // 优先级3: 寻找防守机会
                 const defenseMoves = this.findDefenseMoves();
                 if (defenseMoves.length > 0) {
+                    console.log(`   [困难模式] 🛡️ 发现防守机会: ${defenseMoves.length} 个`);
+                    console.log(`   [困难模式] 选择位置: (${defenseMoves[0].x}, ${defenseMoves[0].y})`);
                     return defenseMoves[0];
                 }
+                console.log(`   [困难模式] 没有防守机会`);
 
                 // 优先级4: 寻找进攻机会（叫吃）
                 const atariMoves = this.findAtariMoves();
                 if (atariMoves.length > 0) {
+                    console.log(`   [困难模式] ⚔️ 发现叫吃机会: ${atariMoves.length} 个`);
+                    console.log(`   [困难模式] 选择位置: (${atariMoves[0].x}, ${atariMoves[0].y}), 可叫吃 ${atariMoves[0].priority} 子`);
                     return atariMoves[0];
                 }
+                console.log(`   [困难模式] 没有叫吃机会`);
 
                 // 优先级5: 高级位置评估
                 const candidates = this.getCandidateMoves();
                 if (candidates.length > 0) {
-                    return this.evaluateAndSelectBestAdvanced(candidates);
+                    console.log(`   [困难模式] 📊 深度评估 ${candidates.length} 个候选位置...`);
+                    const best = this.evaluateAndSelectBestAdvanced(candidates);
+                    console.log(`   [困难模式] 最佳位置: (${best.x}, ${best.y}), 得分: ${best.score.toFixed(2)}`);
+                    return best;
+                }
+                console.log(`   [困难模式] 没有理想候选位置`);
+
+                // 优先级6: 寻找任意有效位置（保底策略）
+                console.log(`   [困难模式] 🔍 搜索任意有效位置作为保底...`);
+                const anyValid = this.findAnyValidMove();
+                if (anyValid) {
+                    console.log(`   [困难模式] ✅ 找到保底位置: (${anyValid.x}, ${anyValid.y})`);
+                    return anyValid;
                 }
 
+                console.log(`   [困难模式] ❌ 真的没有找到任何有效位置！`);
                 return null;
             }
 
@@ -1072,7 +1436,8 @@
 
                 for (let y = 0; y < this.board.size; y++) {
                     for (let x = 0; x < this.board.size; x++) {
-                        if (this.board.grid[y][x] === EMPTY) {
+                        // 检查位置是否有效
+                        if (this.board.isValidMove(x, y, this.color)) {
                             const hasNeighbor = this.hasNeighborStone(x, y);
                             if (hasNeighbor || this.isStarPoint(x, y)) {
                                 candidates.push({ x, y });
@@ -1218,6 +1583,33 @@
                 });
 
                 return ownCount >= 2;
+            }
+
+            // 寻找任意有效位置（保底策略）
+            findAnyValidMove() {
+                // 优先从中心向外搜索
+                const center = Math.floor(this.board.size / 2);
+                const positions = [];
+
+                // 按照距离中心的远近排序位置
+                for (let y = 0; y < this.board.size; y++) {
+                    for (let x = 0; x < this.board.size; x++) {
+                        const distFromCenter = Math.abs(x - center) + Math.abs(y - center);
+                        positions.push({ x, y, dist: distFromCenter });
+                    }
+                }
+
+                // 按距离排序，优先选择靠近中心的位置
+                positions.sort((a, b) => a.dist - b.dist);
+
+                // 找到第一个有效位置
+                for (const pos of positions) {
+                    if (this.board.isValidMove(pos.x, pos.y, this.color)) {
+                        return { x: pos.x, y: pos.y };
+                    }
+                }
+
+                return null;
             }
         }
 
@@ -1383,7 +1775,6 @@
                 this.ui = new UIController();
                 this.currentPlayer = BLACK;
                 this.gamePhase = 'playing';
-                this.passCount = 0;
 
                 this.setupEventListeners();
                 this.ui.updateStatus(this.board, this.currentPlayer);
@@ -1401,17 +1792,17 @@
 
             // 设置事件监听
             setupEventListeners() {
-                this.ui.boardElement.addEventListener('click', (e) => this.handleBoardClick(e));
+                // 使用全局辅助函数注册事件监听器，避免重复添加
+                registerEventListener(this.ui.boardElement, 'click', (e) => this.handleBoardClick(e));
 
-                document.getElementById('pass-btn').addEventListener('click', () => this.handlePass());
-                document.getElementById('restart-btn').addEventListener('click', () => this.restart());
-                document.getElementById('undo-btn').addEventListener('click', () => this.handleUndo());
-                document.getElementById('home-btn').addEventListener('click', () => this.backToDifficultySelect());
-                document.getElementById('modal-restart').addEventListener('click', () => {
+                registerEventListener(document.getElementById('restart-btn'), 'click', () => this.restart());
+                registerEventListener(document.getElementById('undo-btn'), 'click', () => this.handleUndo());
+                registerEventListener(document.getElementById('home-btn'), 'click', () => this.backToDifficultySelect());
+                registerEventListener(document.getElementById('modal-restart'), 'click', () => {
                     this.ui.hideModal();
                     this.restart();
                 });
-                document.getElementById('modal-home').addEventListener('click', () => {
+                registerEventListener(document.getElementById('modal-home'), 'click', () => {
                     this.ui.hideModal();
                     this.backToDifficultySelect();
                 });
@@ -1426,7 +1817,6 @@
                 const { x, y } = this.ui.getClickPosition(event);
 
                 if (this.board.placeStone(x, y, BLACK)) {
-                    this.passCount = 0;
                     this.ui.renderBoard(this.board);
                     this.ui.updateStatus(this.board, this.currentPlayer);
 
@@ -1443,48 +1833,45 @@
 
             // 处理 AI 落子
             handleAIMove() {
-                if (this.gamePhase !== 'playing') return;
+                console.log(`\n========== AI 回合开始 ==========`);
+                console.log(`当前游戏阶段: ${this.gamePhase}`);
+
+                if (this.gamePhase !== 'playing') {
+                    console.log(`❌ 游戏未在进行中，退出`);
+                    return;
+                }
 
                 const move = this.ai.selectMove();
 
                 if (move) {
-                    this.board.placeStone(move.x, move.y, WHITE);
-                    this.passCount = 0;
-                    this.ui.renderBoard(this.board);
-                    this.ui.showMessage('AI 落子完成');
-                } else {
-                    this.passCount++;
-                    this.ui.showMessage('AI 选择停着');
+                    console.log(`\n📍 尝试在 (${move.x}, ${move.y}) 落子...`);
 
-                    if (this.passCount >= 2) {
-                        this.endGame();
+                    // 检查落子是否成功
+                    if (this.board.placeStone(move.x, move.y, WHITE)) {
+                        console.log(`✅ 落子成功！`);
+                        console.log(`   当前棋盘状态: 手数=${this.board.history.length}, 黑提=${this.board.captures.black}, 白提=${this.board.captures.white}`);
+                        this.ui.renderBoard(this.board);
+                        this.ui.showMessage('AI 落子完成');
+                    } else {
+                        // 如果落子失败（理论上不应该发生，因为AI已经验证过）
+                        console.log(`❌ 落子失败！位置 (${move.x}, ${move.y}) 无效`);
+                        console.log(`   可能原因：打劫、自杀、或位置已被占用`);
+                        console.log(`   AI将尝试其他位置...`);
+                        // 由于AI已经验证过位置，理论上不应该到这里
+                        // 如果到了这里，说明有bug，但我们继续让AI尝试落子
                         return;
                     }
-                }
-
-                this.currentPlayer = BLACK;
-                this.ui.updateStatus(this.board, this.currentPlayer);
-            }
-
-            // 处理停着
-            handlePass() {
-                if (this.gamePhase !== 'playing' || this.currentPlayer !== BLACK) {
-                    return;
-                }
-
-                this.passCount++;
-                this.ui.showMessage('你选择了停着');
-
-                if (this.passCount >= 2) {
+                } else {
+                    console.log(`⚠️ AI没有找到任何有效位置`);
+                    console.log(`   可能棋盘已满或全部被封锁`);
+                    this.ui.showMessage('AI无法落子，游戏结束');
                     this.endGame();
                     return;
                 }
 
-                // 切换到 AI
-                this.currentPlayer = WHITE;
+                this.currentPlayer = BLACK;
                 this.ui.updateStatus(this.board, this.currentPlayer);
-
-                setTimeout(() => this.handleAIMove(), 500);
+                console.log(`========== AI 回合结束 ==========\n`);
             }
 
             // 处理悔棋
@@ -1496,7 +1883,6 @@
                     // 撤销玩家的落子
                     if (this.board.undo()) {
                         this.currentPlayer = BLACK;
-                        this.passCount = 0;
                         this.ui.renderBoard(this.board);
                         this.ui.updateStatus(this.board, this.currentPlayer);
                         this.ui.showMessage('悔棋成功');
@@ -1538,7 +1924,6 @@
                 this.ai = new GoAI(WHITE, this.board, this.difficulty);
                 this.currentPlayer = BLACK;
                 this.gamePhase = 'playing';
-                this.passCount = 0;
 
                 this.ui.initBoard();
                 this.ui.renderBoard(this.board);
@@ -1555,6 +1940,7 @@
 
         // ==================== 全局游戏实例和开始函数 ====================
         let game = null;
+        let eventListeners = [];
 
         function startGame(difficulty) {
             // 隐藏难度选择界面
@@ -1563,8 +1949,30 @@
             // 显示游戏容器
             document.getElementById('game-container').style.display = 'block';
 
+            // 移除旧的事件监听器
+            eventListeners.forEach(({ element, event, handler }) => {
+                element.removeEventListener(event, handler);
+            });
+            eventListeners = [];
+
             // 创建游戏实例
             game = new GameController(difficulty);
+        }
+
+        // 注册事件监听器的辅助函数
+        function registerEventListener(element, event, handler) {
+            // 移除已存在的相同监听器（如果有）
+            eventListeners = eventListeners.filter(listener => {
+                if (listener.element === element && listener.event === event) {
+                    listener.element.removeEventListener(listener.event, listener.handler);
+                    return false;
+                }
+                return true;
+            });
+
+            // 添加新监听器
+            element.addEventListener(event, handler);
+            eventListeners.push({ element, event, handler });
         }
 
         // ==================== 初始化游戏 ====================
