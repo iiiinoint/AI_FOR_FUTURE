@@ -182,6 +182,11 @@
             color: white;
         }
 
+        #home-btn {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+        }
+
         button:disabled {
             opacity: 0.5;
             cursor: not-allowed;
@@ -254,8 +259,14 @@
             background-clip: text;
         }
 
-        .modal-btn {
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
             margin-top: 20px;
+        }
+
+        .modal-btn {
             padding: 15px 40px;
             font-size: 18px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -434,6 +445,7 @@
             <button id="pass-btn">停着</button>
             <button id="undo-btn">悔棋</button>
             <button id="restart-btn">重新开始</button>
+            <button id="home-btn">返回主页</button>
         </div>
 
         <div class="status" id="status">点击棋盘落子，黑方先行</div>
@@ -444,7 +456,10 @@
             <h2>游戏结束</h2>
             <div class="winner" id="winner"></div>
             <div class="result-details" id="result-details"></div>
-            <button class="modal-btn" id="modal-restart">再来一局</button>
+            <div class="modal-buttons">
+                <button class="modal-btn" id="modal-restart">再来一局</button>
+                <button class="modal-btn" id="modal-home">返回主页</button>
+            </div>
         </div>
     </div>
 
@@ -1380,9 +1395,14 @@
                 document.getElementById('pass-btn').addEventListener('click', () => this.handlePass());
                 document.getElementById('restart-btn').addEventListener('click', () => this.restart());
                 document.getElementById('undo-btn').addEventListener('click', () => this.handleUndo());
+                document.getElementById('home-btn').addEventListener('click', () => this.backToDifficultySelect());
                 document.getElementById('modal-restart').addEventListener('click', () => {
                     this.ui.hideModal();
                     this.restart();
+                });
+                document.getElementById('modal-home').addEventListener('click', () => {
+                    this.ui.hideModal();
+                    this.backToDifficultySelect();
                 });
             }
 
