@@ -322,6 +322,16 @@
             width: 90%;
         }
 
+        .difficulty-content h1 {
+            font-size: 3em;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
         .difficulty-content h2 {
             font-size: 2.5em;
             margin-bottom: 40px;
@@ -397,6 +407,7 @@
     <!-- 难度选择界面 -->
     <div id="difficulty-modal">
         <div class="difficulty-content">
+            <h1>围棋大师</h1>
             <h2>选择难度</h2>
             <div class="difficulty-buttons">
                 <button class="difficulty-btn easy" onclick="startGame('easy')">
