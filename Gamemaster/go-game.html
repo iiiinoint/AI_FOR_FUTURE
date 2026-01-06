@@ -841,6 +841,75 @@
                 return liberties.size;
             }
 
+            // ==================== 新增：统一的气数计算函数 ====================
+            // 使用 Flood Fill 算法找出 (x, y) 所在的棋子组并计算其气数
+            // 返回: { liberties: number, group: Array, libertyPositions: Set }
+            getGroupLiberties(x, y) {
+                // 边界检查
+                if (!this.isOnBoard(x, y)) {
+                    return { liberties: 0, group: [], libertyPositions: new Set() };
+                }
+
+                const color = this.grid[y][x];
+
+                // 如果是空位，没有气
+                if (color === EMPTY) {
+                    return { liberties: 0, group: [], libertyPositions: new Set() };
+                }
+
+                // 使用栈实现的 Flood Fill 算法
+                const group = [];           // 存储棋子组中的所有棋子
+                const libertyPositions = new Set();  // 存储气的位置（使用Set避免重复）
+                const visited = new Set();  // 记录已访问的位置
+                const stack = [{ x, y }];   // 待访问的栈
+
+                while (stack.length > 0) {
+                    const { x: currX, y: currY } = stack.pop();
+                    const key = `${currX},${currY}`;
+
+                    // 如果已经访问过，跳过
+                    if (visited.has(key)) {
+                        continue;
+                    }
+                    visited.add(key);
+
+                    // 检查当前位置的棋子颜色
+                    const currentColor = this.grid[currY][currX];
+
+                    if (currentColor === color) {
+                        // 同色棋子：加入棋子组，并继续搜索邻居
+                        group.push({ x: currX, y: currY });
+
+                        // 四个方向：上下左右
+                        const neighbors = [
+                            { x: currX - 1, y: currY },
+                            { x: currX + 1, y: currY },
+                            { x: currX, y: currY - 1 },
+                            { x: currX, y: currY + 1 }
+                        ];
+
+                        for (const neighbor of neighbors) {
+                            const neighborKey = `${neighbor.x},${neighbor.y}`;
+
+                            // 只处理未访问的、在棋盘内的位置
+                            if (this.isOnBoard(neighbor.x, neighbor.y) && !visited.has(neighborKey)) {
+                                stack.push(neighbor);
+                            }
+                        }
+                    } else if (currentColor === EMPTY) {
+                        // 空位：这是一个气！
+                        libertyPositions.add(`${currX},${currY}`);
+                    }
+                    // 如果是对方棋子，不做处理
+                }
+
+                return {
+                    liberties: libertyPositions.size,
+                    group: group,
+                    libertyPositions: libertyPositions
+                };
+            }
+
             // 检测提子
             detectCaptures(x, y, placedColor) {
                 const opponentColor = placedColor === BLACK ? WHITE : BLACK;
@@ -1118,6 +1187,7 @@
                 this.color = color;
                 this.board = board;
                 this.difficulty = difficulty;
+                this.opponentColor = color === BLACK ? WHITE : BLACK;
             }
 
             // 选择落子（根据难度）
@@ -1140,7 +1210,7 @@
                 }
 
                 if (move) {
-                    console.log(`✅ AI决定落子于: (${move.x}, ${move.y})`);
+                    console.log(`✅ AI决定落子于: (${move.x}, ${move.y}), 得分: ${move.score ? move.score.toFixed(2) : 'N/A'}`);
                 } else {
                     console.log(`⚠️ AI没有找到合适的落子位置，选择停着`);
                 }
@@ -1149,316 +1219,591 @@
             }
 
             // ==================== 简单难度 ====================
+            // 仅识别 Atari 和 Rescue，其余随机选择合法点
             selectMoveEasy() {
-                console.log(`   [简单模式] 开始搜索候选位置...`);
+                console.log(`   [简单模式] 开始决策...`);
                 const candidates = [];
 
                 for (let y = 0; y < this.board.size; y++) {
                     for (let x = 0; x < this.board.size; x++) {
-                        // 检查位置是否有效且为空
-                        if (this.board.isValidMove(x, y, this.color)) {
-                            // 简单AI：只考虑有相邻棋子或星位的位置
-                            if (this.hasNeighborStone(x, y) || this.isStarPoint(x, y)) {
-                                candidates.push({ x, y });
-                            }
+                        if (!this.board.isValidMove(x, y, this.color)) continue;
+
+                        let score = this.getPositionalValue(x, y);
+
+                        // 检查 Atari（打吃对方）
+                        if (this.checkAtari(x, y)) {
+                            score += 50;
+                            console.log(`   [简单模式] 发现Atari: (${x}, ${y})`);
                         }
+
+                        // 检查 Rescue（救援己方）
+                        if (this.checkRescue(x, y)) {
+                            score += 80;
+                            console.log(`   [简单模式] 发现Rescue: (${x}, ${y})`);
+                        }
+
+                        // 添加随机性
+                        score += Math.random() * 10;
+
+                        candidates.push({ x, y, score });
                     }
                 }
-
-                console.log(`   [简单模式] 找到 ${candidates.length} 个有邻居/星位的候选位置`);
 
                 if (candidates.length === 0) {
-                    // 如果没有候选点，随机选择有效空位
-                    console.log(`   [简单模式] 没有找到理想位置，搜索所有有效空位...`);
-                    for (let y = 0; y < this.board.size; y++) {
-                        for (let x = 0; x < this.board.size; x++) {
-                            if (this.board.isValidMove(x, y, this.color)) {
-                                candidates.push({ x, y });
-                            }
-                        }
-                    }
-                    console.log(`   [简单模式] 找到 ${candidates.length} 个有效空位`);
+                    console.log(`   [简单模式] ❌ 没有找到任何有效位置！`);
+                    return null;
                 }
 
-                if (candidates.length > 0) {
-                    const randomIndex = Math.floor(Math.random() * candidates.length);
-                    const selected = candidates[randomIndex];
-                    console.log(`   [简单模式] 随机选择第 ${randomIndex + 1}/${candidates.length} 个位置`);
-                    return selected;
-                }
-
-                console.log(`   [简单模式] ❌ 没有找到任何有效位置！`);
-                return null;
+                candidates.sort((a, b) => b.score - a.score);
+                const best = candidates[0];
+                console.log(`   [简单模式] 最佳位置: (${best.x}, ${best.y}), 得分: ${best.score.toFixed(2)}`);
+                return best;
             }
 
             // ==================== 中等难度 ====================
+            // 应用所有战术判定，并加入基本的安全检查
             selectMoveMedium() {
                 console.log(`   [中等模式] 开始决策...`);
-
-                // 优先级1: 寻找提子机会
-                const captureMoves = this.findCaptureMoves();
-                if (captureMoves.length > 0) {
-                    console.log(`   [中等模式] 🎯 发现提子机会: ${captureMoves.length} 个，选择优先级最高的`);
-                    console.log(`   [中等模式] 选择位置: (${captureMoves[0].x}, ${captureMoves[0].y}), 可提 ${captureMoves[0].priority} 子`);
-                    return captureMoves[0];
-                }
-                console.log(`   [中等模式] 没有提子机会`);
-
-                // 优先级2: 寻找防守机会
-                const defenseMoves = this.findDefenseMoves();
-                if (defenseMoves.length > 0) {
-                    console.log(`   [中等模式] 🛡️ 发现防守机会: ${defenseMoves.length} 个`);
-                    console.log(`   [中等模式] 选择位置: (${defenseMoves[0].x}, ${defenseMoves[0].y})`);
-                    return defenseMoves[0];
-                }
-                console.log(`   [中等模式] 没有防守机会`);
-
-                // 优先级3: 位置评估
-                const candidates = this.getCandidateMoves();
-                if (candidates.length > 0) {
-                    console.log(`   [中等模式] 📊 评估 ${candidates.length} 个候选位置...`);
-                    const best = this.evaluateAndSelectBest(candidates);
-                    console.log(`   [中等模式] 最佳位置: (${best.x}, ${best.y}), 得分: ${best.score.toFixed(2)}`);
-                    return best;
-                }
-                console.log(`   [中等模式] 没有理想候选位置`);
-
-                // 优先级4: 寻找任意有效位置（保底策略）
-                console.log(`   [中等模式] 🔍 搜索任意有效位置作为保底...`);
-                const anyValid = this.findAnyValidMove();
-                if (anyValid) {
-                    console.log(`   [中等模式] ✅ 找到保底位置: (${anyValid.x}, ${anyValid.y})`);
-                    return anyValid;
-                }
-
-                console.log(`   [中等模式] ❌ 真的没有找到任何有效位置！`);
-                return null;
-            }
-
-            // ==================== 困难难度 ====================
-            selectMoveHard() {
-                console.log(`   [困难模式] 开始深度分析...`);
-
-                // 优先级1: 寻找提子机会（优先级更高）
-                const captureMoves = this.findCaptureMoves();
-                if (captureMoves.length > 0) {
-                    console.log(`   [困难模式] 🎯 发现提子机会: ${captureMoves.length} 个`);
-                    console.log(`   [困难模式] 选择位置: (${captureMoves[0].x}, ${captureMoves[0].y}), 可提 ${captureMoves[0].priority} 子`);
-                    return captureMoves[0];
-                }
-                console.log(`   [困难模式] 没有提子机会`);
-
-                // 优先级2: 寻找切断机会（新增）
-                const cutMoves = this.findCutMoves();
-                if (cutMoves.length > 0) {
-                    console.log(`   [困难模式] ✂️ 发现切断机会: ${cutMoves.length} 个`);
-                    console.log(`   [困难模式] 选择位置: (${cutMoves[0].x}, ${cutMoves[0].y}), 可切断 ${cutMoves[0].priority} 组`);
-                    return cutMoves[0];
-                }
-                console.log(`   [困难模式] 没有切断机会`);
-
-                // 优先级3: 寻找防守机会
-                const defenseMoves = this.findDefenseMoves();
-                if (defenseMoves.length > 0) {
-                    console.log(`   [困难模式] 🛡️ 发现防守机会: ${defenseMoves.length} 个`);
-                    console.log(`   [困难模式] 选择位置: (${defenseMoves[0].x}, ${defenseMoves[0].y})`);
-                    return defenseMoves[0];
-                }
-                console.log(`   [困难模式] 没有防守机会`);
-
-                // 优先级4: 寻找进攻机会（叫吃）
-                const atariMoves = this.findAtariMoves();
-                if (atariMoves.length > 0) {
-                    console.log(`   [困难模式] ⚔️ 发现叫吃机会: ${atariMoves.length} 个`);
-                    console.log(`   [困难模式] 选择位置: (${atariMoves[0].x}, ${atariMoves[0].y}), 可叫吃 ${atariMoves[0].priority} 子`);
-                    return atariMoves[0];
-                }
-                console.log(`   [困难模式] 没有叫吃机会`);
-
-                // 优先级5: 高级位置评估
-                const candidates = this.getCandidateMoves();
-                if (candidates.length > 0) {
-                    console.log(`   [困难模式] 📊 深度评估 ${candidates.length} 个候选位置...`);
-                    const best = this.evaluateAndSelectBestAdvanced(candidates);
-                    console.log(`   [困难模式] 最佳位置: (${best.x}, ${best.y}), 得分: ${best.score.toFixed(2)}`);
-                    return best;
-                }
-                console.log(`   [困难模式] 没有理想候选位置`);
-
-                // 优先级6: 寻找任意有效位置（保底策略）
-                console.log(`   [困难模式] 🔍 搜索任意有效位置作为保底...`);
-                const anyValid = this.findAnyValidMove();
-                if (anyValid) {
-                    console.log(`   [困难模式] ✅ 找到保底位置: (${anyValid.x}, ${anyValid.y})`);
-                    return anyValid;
-                }
-
-                console.log(`   [困难模式] ❌ 真的没有找到任何有效位置！`);
-                return null;
-            }
-
-            // 寻找提子机会
-            findCaptureMoves() {
-                const moves = [];
-
-                for (let y = 0; y < this.board.size; y++) {
-                    for (let x = 0; x < this.board.size; x++) {
-                        if (this.board.isOnBoard(x, y) && this.board.grid[y][x] === EMPTY) {
-                            const tempBoard = this.board.clone();
-                            if (tempBoard.placeStone(x, y, this.color)) {
-                                const captures = tempBoard.detectCaptures(x, y, this.color);
-                                if (captures.length > 0) {
-                                    moves.push({ x, y, priority: captures.length });
-                                }
-                            }
-                        }
-                    }
-                }
-
-                return moves.sort((a, b) => b.priority - a.priority);
-            }
-
-            // 寻找防守机会
-            findDefenseMoves() {
-                const defenses = [];
-
-                for (let y = 0; y < this.board.size; y++) {
-                    for (let x = 0; x < this.board.size; x++) {
-                        if (this.board.grid[y][x] === this.color) {
-                            const group = this.board.getGroup(x, y);
-                            const liberties = this.board.getLiberties(group);
-
-                            if (liberties === 1) {
-                                group.forEach(stone => {
-                                    const neighbors = [
-                                        { x: stone.x - 1, y: stone.y },
-                                        { x: stone.x + 1, y: stone.y },
-                                        { x: stone.x, y: stone.y - 1 },
-                                        { x: stone.x, y: stone.y + 1 }
-                                    ];
-
-                                    neighbors.forEach(n => {
-                                        if (this.board.isOnBoard(n.x, n.y) &&
-                                            this.board.grid[n.y][n.x] === EMPTY) {
-                                            if (!defenses.some(d => d.x === n.x && d.y === n.y)) {
-                                                defenses.push({ x: n.x, y: n.y, priority: 10 });
-                                            }
-                                        }
-                                    });
-                                });
-                            }
-                        }
-                    }
-                }
-
-                return defenses.sort((a, b) => b.priority - a.priority);
-            }
-
-            // 寻找切断机会（困难模式新增）
-            findCutMoves() {
-                const cuts = [];
-                const opponentColor = this.color === BLACK ? WHITE : BLACK;
-
-                for (let y = 0; y < this.board.size; y++) {
-                    for (let x = 0; x < this.board.size; x++) {
-                        if (this.board.grid[y][x] === EMPTY) {
-                            // 检查落子后是否能切断对方
-                            const neighbors = [
-                                { x: x - 1, y }, { x: x + 1, y },
-                                { x, y: y - 1 }, { x, y: y + 1 }
-                            ];
-
-                            const opponentNeighbors = neighbors.filter(n =>
-                                this.board.isOnBoard(n.x, n.y) &&
-                                this.board.grid[n.y][n.x] === opponentColor
-                            );
-
-                            if (opponentNeighbors.length >= 2) {
-                                // 检查这些对方棋子是否属于不同组
-                                const groups = opponentNeighbors.map(n => this.board.getGroup(n.x, n.y));
-                                const uniqueGroups = [];
-                                groups.forEach(g => {
-                                    if (!uniqueGroups.some(ug => ug[0].x === g[0].x && ug[0].y === g[0].y)) {
-                                        uniqueGroups.push(g);
-                                    }
-                                });
-
-                                if (uniqueGroups.length >= 2) {
-                                    cuts.push({ x, y, priority: uniqueGroups.length });
-                                }
-                            }
-                        }
-                    }
-                }
-
-                return cuts.sort((a, b) => b.priority - a.priority);
-            }
-
-            // 寻找叫吃机会（困难模式新增）
-            findAtariMoves() {
-                const ataris = [];
-
-                for (let y = 0; y < this.board.size; y++) {
-                    for (let x = 0; x < this.board.size; x++) {
-                        if (this.board.grid[y][x] === EMPTY) {
-                            const tempBoard = this.board.clone();
-                            if (tempBoard.placeStone(x, y, this.color)) {
-                                const opponentColor = this.color === BLACK ? WHITE : BLACK;
-                                const neighbors = [
-                                    { x: x - 1, y }, { x: x + 1, y },
-                                    { x, y: y - 1 }, { x, y: y + 1 }
-                                ];
-
-                                neighbors.forEach(n => {
-                                    if (tempBoard.isOnBoard(n.x, n.y) &&
-                                        tempBoard.grid[n.y][n.x] === opponentColor) {
-                                        const group = tempBoard.getGroup(n.x, n.y);
-                                        const liberties = tempBoard.getLiberties(group);
-
-                                        if (liberties === 1) {
-                                            if (!ataris.some(a => a.x === x && a.y === y)) {
-                                                ataris.push({ x, y, priority: group.length });
-                                            }
-                                        }
-                                    }
-                                });
-                            }
-                        }
-                    }
-                }
-
-                return ataris.sort((a, b) => b.priority - a.priority);
-            }
-
-            // 获取候选落子点
-            getCandidateMoves() {
                 const candidates = [];
 
                 for (let y = 0; y < this.board.size; y++) {
                     for (let x = 0; x < this.board.size; x++) {
-                        // 检查位置是否有效
-                        if (this.board.isValidMove(x, y, this.color)) {
-                            const hasNeighbor = this.hasNeighborStone(x, y);
-                            if (hasNeighbor || this.isStarPoint(x, y)) {
-                                candidates.push({ x, y });
-                            }
+                        if (!this.board.isValidMove(x, y, this.color)) continue;
+
+                        let score = 0;
+
+                        // 战术1：检查 Capture（提子）
+                        const captureCount = this.checkCapture(x, y);
+                        if (captureCount > 0) {
+                            score += 100 * captureCount;
+                        }
+
+                        // 战术2：检查 Atari（打吃对方）
+                        if (this.checkAtari(x, y)) {
+                            score += 60;
+                        }
+
+                        // 战术3：检查 Rescue（救援己方）
+                        if (this.checkRescue(x, y)) {
+                            score += 90;
+                        }
+
+                        // 战术4：检查 Solid Connection（粘）
+                        if (this.checkConnection(x, y)) {
+                            score += 20;
+                        }
+
+                        // 3x3接触战检查：优先选择与对方棋子接触的位置
+                        if (this.hasOpponentIn3x3(x, y)) {
+                            score += 15;
+                        }
+
+                        // 位置分（简化版）
+                        const posScore = this.getPositionalScore(x, y);
+                        score += posScore;
+
+                        // 添加少量随机性
+                        score += Math.random() * 5;
+
+                        candidates.push({ x, y, score });
+                    }
+                }
+
+                if (candidates.length === 0) {
+                    console.log(`   [中等模式] ❌ 没有找到任何有效位置！`);
+                    return null;
+                }
+
+                candidates.sort((a, b) => b.score - a.score);
+                const best = candidates[0];
+                console.log(`   [中等模式] 最佳位置: (${best.x}, ${best.y}), 得分: ${best.score.toFixed(2)}`);
+                return best;
+            }
+
+            // ==================== 困难难度 ====================
+            // 疯狗模式：极具侵略性的进攻AI
+            selectMoveHard() {
+                console.log(`   [困难模式] 🐕 疯狗模式启动 - 寻找进攻机会...`);
+
+                // 收集所有候选点并评分
+                const candidates = [];
+
+                for (let y = 0; y < this.board.size; y++) {
+                    for (let x = 0; x < this.board.size; x++) {
+                        if (!this.board.isValidMove(x, y, this.color)) continue;
+
+                        // 计算侵略性评分
+                        const aggressionScore = this.evaluateAggression(x, y);
+
+                        // 如果是自杀，跳过（除非能提子）
+                        if (aggressionScore.isSuicide && aggressionScore.captureCount === 0) {
+                            continue;
+                        }
+
+                        candidates.push({ x, y, score: aggressionScore.totalScore, details: aggressionScore });
+                    }
+                }
+
+                if (candidates.length === 0) {
+                    console.log(`   [困难模式] ❌ 没有找到任何有效位置！`);
+                    return null;
+                }
+
+                // 选择最高分的点
+                candidates.sort((a, b) => b.score - a.score);
+                const best = candidates[0];
+                console.log(`   [困难模式] ✅ 攻击落子: (${best.x}, ${best.y}), 总分: ${best.score.toFixed(1)}`);
+                return best;
+            }
+
+            // ==================== 侵略性评估函数 ====================
+            // 核心：进攻权重 > 防守权重
+            evaluateAggression(x, y) {
+                let score = 0;
+                let captureCount = 0;
+                let isSuicide = false;
+
+                // 1️⃣ 优先级最高：吃子
+                captureCount = this.checkCapture(x, y);
+                if (captureCount > 0) {
+                    score += 150 * captureCount; // 大幅提高吃子权重
+                    console.log(`   [侵略性评估] (${x},${y}) 吃子: +${150 * captureCount}`);
+                }
+
+                // 2️⃣ 切断点检测（战略攻击）
+                const cutResult = this.checkCuttingPoint(x, y);
+                if (cutResult.isCut) {
+                    score += 200; // 切断权重极高
+                    console.log(`   [侵略性评估] (${x},${y}) 切断对方${cutResult.cutGroups}块棋: +200`);
+                }
+
+                // 3️⃣ 扳头检测
+                const isHane = this.checkHane(x, y);
+                if (isHane) {
+                    score += 80;
+                    console.log(`   [侵略性评估] (${x},${y}) 扳头: +80`);
+                }
+
+                // 4️⃣ 气差值攻击：让对方减少气
+                const libertyDiff = this.calculateLibertyDifferential(x, y);
+                score += libertyDiff * 50; // 每减少对方1口气 = +50分
+                if (libertyDiff > 0) {
+                    console.log(`   [侵略性评估] (${x},${y}) 压缩对方气数-${libertyDiff}: +${libertyDiff * 50}`);
+                }
+
+                // 5️⃣ 打吃（让对方只剩1口气）
+                const isAtari = this.checkAtari(x, y);
+                if (isAtari) {
+                    score += 100;
+                    console.log(`   [侵略性评估] (${x},${y}) 打吃对方: +100`);
+                }
+
+                // 6️⃣ 防守权重（大幅降低）
+                const isRescue = this.checkRescue(x, y);
+                if (isRescue) {
+                    score += 30; // 从100降到30
+                    console.log(`   [侵略性评估] (${x},${y}) 救援: +30`);
+                }
+
+                // 7️⃣ 对杀判断：如果自己气数比对方多，坚决对杀
+                const fightResult = this.evaluateFight(x, y);
+                if (fightResult.canWin) {
+                    score += 120;
+                    console.log(`   [侵略性评估] (${x},${y}) 对杀可赢(己${fightResult.myLiberties}气 vs 敌${fightResult.enemyLiberties}气): +120`);
+                } else if (fightResult.canLose) {
+                    score -= 500; // 对杀会输，大幅扣分
+                    console.log(`   [侵略性评估] (${x},${y}) 对杀会输: -500`);
+                }
+
+                // 8️⃣ 检查是否自杀
+                const tempBoard = this.board.clone();
+                if (tempBoard.placeStone(x, y, this.color)) {
+                    const myGroup = tempBoard.getGroupLiberties(x, y);
+                    if (myGroup.liberties === 0) {
+                        isSuicide = true;
+                    } else if (myGroup.liberties === 1) {
+                        // 只有1口气，但要检查能否提子
+                        if (captureCount === 0) {
+                            score -= 300; // 极其危险，大幅扣分
+                            console.log(`   [侵略性评估] (${x},${y}) 只有1口气: -300`);
                         }
                     }
                 }
 
-                return candidates;
+                // 9️⃣ 位置权重（降低）
+                const posScore = this.getPositionalScore(x, y);
+                score += posScore * 0.3; // 位置权重降为30%
+
+                // 🔟 贴近对手加分（鼓励贴身肉搏）
+                if (this.isAdjacentToOpponent(x, y)) {
+                    score += 20;
+                    console.log(`   [侵略性评估] (${x},${y}) 贴近对手: +20`);
+                }
+
+                return { totalScore: score, captureCount, isSuicide };
             }
 
-            // 检查是否有相邻棋子
-            hasNeighborStone(x, y) {
+            // ==================== 气差值攻击 ====================
+            // 计算落子后对方相邻棋子总共减少多少气
+            calculateLibertyDifferential(x, y) {
+                let totalReduction = 0;
+
                 const neighbors = [
                     { x: x - 1, y }, { x: x + 1, y },
                     { x, y: y - 1 }, { x, y: y + 1 }
                 ];
 
-                return neighbors.some(n =>
-                    this.board.isOnBoard(n.x, n.y) && this.board.grid[n.y][n.x] !== EMPTY
-                );
+                for (const n of neighbors) {
+                    if (!this.board.isOnBoard(n.x, n.y)) continue;
+                    if (this.board.grid[n.y][n.x] !== this.opponentColor) continue;
+
+                    // 获取落子前对方的气数
+                    const beforeLiberties = this.board.getGroupLiberties(n.x, n.y).liberties;
+
+                    // 获取落子后对方的气数
+                    const tempBoard = this.board.clone();
+                    if (tempBoard.placeStone(x, y, this.color)) {
+                        const afterLiberties = tempBoard.getGroupLiberties(n.x, n.y).liberties;
+                        const reduction = beforeLiberties - afterLiberties;
+                        totalReduction += reduction;
+                    }
+                }
+
+                return totalReduction;
+            }
+
+            // ==================== 切断点检测 ====================
+            // 检查落子后能否切断对方
+            checkCuttingPoint(x, y) {
+                const tempBoard = this.board.clone();
+                if (!tempBoard.placeStone(x, y, this.color)) {
+                    return { isCut: false, cutGroups: 0 };
+                }
+
+                // 检查对角线位置是否有对方的棋子
+                const diagonals = [
+                    { x: x - 1, y: y - 1 }, { x: x + 1, y: y - 1 },
+                    { x: x - 1, y: y + 1 }, { x: x + 1, y: y + 1 }
+                ];
+
+                let opponentGroups = [];
+                const visited = new Set();
+
+                for (const d of diagonals) {
+                    if (!tempBoard.isOnBoard(d.x, d.y)) continue;
+                    if (tempBoard.grid[d.y][d.x] !== this.opponentColor) continue;
+
+                    const key = `${d.x},${d.y}`;
+                    if (visited.has(key)) continue;
+
+                    const group = tempBoard.getGroup(d.x, d.y);
+                    group.forEach(stone => visited.add(`${stone.x},${stone.y}`));
+
+                    opponentGroups.push(group);
+                }
+
+                // 如果有2个或以上的对方棋子组在四个对角方向，可能切断
+                if (opponentGroups.length >= 2) {
+                    // 进一步验证：这些棋子组在落子前是否连通
+                    const beforeBoard = this.board.clone();
+                    let wasConnected = false;
+
+                    // 检查这些棋子组在落子前是否属于同一个组
+                    if (opponentGroups.length >= 2) {
+                        const firstGroup = beforeBoard.getGroup(opponentGroups[0][0].x, opponentGroups[0][0].y);
+
+                        for (let i = 1; i < opponentGroups.length; i++) {
+                            const secondStone = opponentGroups[i][0];
+                            if (firstGroup.some(s => s.x === secondStone.x && s.y === secondStone.y)) {
+                                wasConnected = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (wasConnected) {
+                        return { isCut: true, cutGroups: opponentGroups.length };
+                    }
+                }
+
+                return { isCut: false, cutGroups: 0 };
+            }
+
+            // ==================== 扳头检测 ====================
+            // 检查是否在对方棋子序列的"头"上落子
+            checkHane(x, y) {
+                const neighbors = [
+                    { x: x - 1, y }, { x: x + 1, y },
+                    { x, y: y - 1 }, { x, y: y + 1 }
+                ];
+
+                // 检查相邻位置是否有对方棋子
+                for (const n of neighbors) {
+                    if (!this.board.isOnBoard(n.x, n.y)) continue;
+                    if (this.board.grid[n.y][n.x] !== this.opponentColor) continue;
+
+                    // 检查对方棋子是否有一排（2个或以上）
+                    const group = this.board.getGroup(n.x, n.y);
+                    if (group.length >= 2) {
+                        // 检查这排棋子的延伸方向
+                        // 如果落子在对方棋子的"头"上，就是扳
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            // ==================== 对杀评估 ====================
+            // 检查是否能赢下对杀
+            evaluateFight(x, y) {
+                const tempBoard = this.board.clone();
+                if (!tempBoard.placeStone(x, y, this.color)) {
+                    return { canWin: false, canLose: false, myLiberties: 0, enemyLiberties: 0 };
+                }
+
+                // 获取己方棋子组的气数
+                const myGroup = tempBoard.getGroupLiberties(x, y);
+                const myLiberties = myGroup.liberties;
+
+                // 获取相邻对方棋子组的气数
+                const neighbors = [
+                    { x: x - 1, y }, { x: x + 1, y },
+                    { x, y: y - 1 }, { x, y: y + 1 }
+                ];
+
+                let minEnemyLiberties = Infinity;
+
+                for (const n of neighbors) {
+                    if (!tempBoard.isOnBoard(n.x, n.y)) continue;
+                    if (tempBoard.grid[n.y][n.x] !== this.opponentColor) continue;
+
+                    const enemyGroup = tempBoard.getGroupLiberties(n.x, n.y);
+                    minEnemyLiberties = Math.min(minEnemyLiberties, enemyGroup.liberties);
+                }
+
+                if (minEnemyLiberties === Infinity) {
+                    // 没有相邻对方棋子，不算对杀
+                    return { canWin: false, canLose: false, myLiberties, enemyLiberties: 0 };
+                }
+
+                return {
+                    canWin: myLiberties > minEnemyLiberties,
+                    canLose: myLiberties < minEnemyLiberties,
+                    myLiberties,
+                    enemyLiberties: minEnemyLiberties
+                };
+            }
+
+            // ==================== 检查是否贴近对手 ====================
+            isAdjacentToOpponent(x, y) {
+                const neighbors = [
+                    { x: x - 1, y }, { x: x + 1, y },
+                    { x, y: y - 1 }, { x, y: y + 1 }
+                ];
+
+                for (const n of neighbors) {
+                    if (this.board.isOnBoard(n.x, n.y) && this.board.grid[n.y][n.x] === this.opponentColor) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            // ==================== 模拟预判层 ====================
+            // 检查落子是否安全（考虑对手反击）
+            isMoveSafe(board, x, y, color) {
+                const opponentColor = color === BLACK ? WHITE : BLACK;
+
+                // 虚拟落子
+                const tempBoard = board.clone();
+                if (!tempBoard.placeStone(x, y, color)) {
+                    return { safe: false, reason: '无法落子' };
+                }
+
+                // 检查1：落子后的棋子气数
+                const myGroupResult = tempBoard.getGroupLiberties(x, y);
+                if (myGroupResult.liberties === 0) {
+                    return { safe: false, reason: '自杀' };
+                }
+
+                // 检查2：如果只有1口气，检查对手能否立刻提走（Snapback/倒扑）
+                if (myGroupResult.liberties === 1) {
+                    // 找到那个唯一的气
+                    const myLiberties = Array.from(myGroupResult.libertyPositions);
+                    if (myLiberties.length === 1) {
+                        const [libertyX, libertyY] = myLiberties[0].split(',').map(Number);
+
+                        // 检查对手能否在那个位置落子提走我方棋子
+                        const checkBoard = tempBoard.clone();
+                        if (checkBoard.isValidMove(libertyX, libertyY, opponentColor)) {
+                            if (checkBoard.placeStone(libertyX, libertyY, opponentColor)) {
+                                // 检查提子数量
+                                const captures = checkBoard.detectCaptures(libertyX, libertyY, opponentColor);
+                                if (captures.length >= myGroupResult.group.length) {
+                                    return { safe: false, reason: '倒扑：对手可反提' };
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 检查3：是否让己方其他棋子组气数变少
+                // 获取落子前己方所有棋子组的气数
+                const beforeGroups = this.getAllGroupLiberties(board, color);
+
+                // 获取落子后己方所有棋子组的气数
+                const afterGroups = this.getAllGroupLiberties(tempBoard, color);
+
+                // 比较是否有棋子组气数减少
+                for (const key in beforeGroups) {
+                    if (afterGroups[key] !== undefined && afterGroups[key] < beforeGroups[key]) {
+                        return { safe: false, reason: `气数减少: ${beforeGroups[key]}→${afterGroups[key]}` };
+                    }
+                }
+
+                return { safe: true };
+            }
+
+            // 获取某一方所有棋子组的气数
+            getAllGroupLiberties(board, color) {
+                const groupsLiberties = {};
+                const visited = new Set();
+
+                for (let y = 0; y < board.size; y++) {
+                    for (let x = 0; x < board.size; x++) {
+                        if (board.grid[y][x] === color) {
+                            const key = `${x},${y}`;
+                            if (visited.has(key)) continue;
+
+                            const result = board.getGroupLiberties(x, y);
+                            result.group.forEach(stone => visited.add(`${stone.x},${stone.y}`));
+
+                            // 用棋子组的起始位置作为key
+                            const groupKey = `${result.group[0].x},${result.group[0].y}`;
+                            groupsLiberties[groupKey] = result.liberties;
+                        }
+                    }
+                }
+
+                return groupsLiberties;
+            }
+
+            // ==================== 棋盘价值图 (Influence Map) ====================
+            // 计算位置的基础价值，基于中心距离、星位、边缘等
+            getPositionalValue(x, y) {
+                let value = 0;
+
+                // 1. 中心位置加分
+                const center = Math.floor(this.board.size / 2);
+                const distFromCenter = Math.abs(x - center) + Math.abs(y - center);
+                value += (this.board.size - distFromCenter) * 2;
+
+                // 2. 星位加分
+                if (this.isStarPoint(x, y)) {
+                    value += 15;
+                }
+
+                // 3. 死亡线（第一线）极低权重
+                if (x === 0 || x === this.board.size - 1 || y === 0 || y === this.board.size - 1) {
+                    value -= 20;
+                }
+
+                // 4. 第二线轻微减分
+                if (x === 1 || x === this.board.size - 2 || y === 1 || y === this.board.size - 2) {
+                    value -= 5;
+                }
+
+                // 5. 第三线到第五线较为理想
+                if ((x >= 2 && x <= 4) || (x >= this.board.size - 5 && x <= this.board.size - 3) ||
+                    (y >= 2 && y <= 4) || (y >= this.board.size - 5 && y <= this.board.size - 3)) {
+                    value += 3;
+                }
+
+                return value;
+            }
+
+            // ==================== 位置权重评分 ====================
+            // 金角银边 + 疏密判断
+            getPositionalScore(x, y) {
+                let score = 0;
+
+                // 1. 金角银边：第3、4线的交点（星位、小目）
+                const isThirdLine = (x === 3 || x === 9 || y === 3 || y === 9);
+                const isFourthLine = (x === 4 || x === 8 || y === 4 || y === 8);
+
+                // 星位（第3线交点）
+                if ((x === 3 || x === 9) && (y === 3 || y === 9)) {
+                    score += 10;
+                }
+                // 小目（第3线和第4线的交点）
+                else if (isThirdLine && isFourthLine) {
+                    score += 8;
+                }
+                // 第3线其他位置
+                else if (isThirdLine) {
+                    score += 5;
+                }
+                // 第4线其他位置
+                else if (isFourthLine) {
+                    score += 4;
+                }
+
+                // 2. 疏密判断：计算周围2格范围内的棋子密度
+                const density = this.calculateLocalDensity(x, y, 2);
+
+                // 周围越空旷，加分越多
+                if (density <= 1) {
+                    score += 5;  // 非常空旷
+                } else if (density <= 3) {
+                    score += 3;  // 比较空旷
+                } else if (density >= 6) {
+                    score -= 3;  // 太拥挤，减分
+                }
+
+                // 3. 避免贴着死棋（对方只剩1口气的棋子）
+                if (this.isNearDeadStones(x, y)) {
+                    score -= 8;
+                }
+
+                return score;
+            }
+
+            // 计算局部密度（周围radius格范围内的棋子数量）
+            calculateLocalDensity(x, y, radius) {
+                let count = 0;
+
+                for (let dy = y - radius; dy <= y + radius; dy++) {
+                    for (let dx = x - radius; dx <= x + radius; dx++) {
+                        if (this.board.isOnBoard(dx, dy) && !(dx === x && dy === y)) {
+                            if (this.board.grid[dy][dx] !== EMPTY) {
+                                count++;
+                            }
+                        }
+                    }
+                }
+
+                return count;
+            }
+
+            // 检查是否接近死棋（对方只剩1口气的棋子）
+            isNearDeadStones(x, y) {
+                const neighbors = [
+                    { x: x - 1, y }, { x: x + 1, y },
+                    { x, y: y - 1 }, { x, y: y + 1 }
+                ];
+
+                for (const n of neighbors) {
+                    if (this.board.isOnBoard(n.x, n.y) && this.board.grid[n.y][n.x] === this.opponentColor) {
+                        const result = this.board.getGroupLiberties(n.x, n.y);
+                        if (result.liberties === 1) {
+                            return true;
+                        }
+                    }
+                }
+
+                return false;
             }
 
             // 判断是否为星位
@@ -1469,147 +1814,238 @@
                     size === 19 ?
                     [[3, 3], [9, 3], [15, 3], [3, 9], [9, 9], [15, 9], [3, 15], [9, 15], [15, 15]] :
                     [];
-
                 return starPoints.some(p => p[0] === x && p[1] === y);
             }
 
-            // 基础评估（中等难度）
-            evaluateAndSelectBest(candidates) {
-                if (candidates.length === 0) return null;
+            // ==================== 战术判定函数 ====================
 
-                const scored = candidates.map(move => {
-                    let score = 0;
-
-                    const center = Math.floor(this.board.size / 2);
-                    const distFromCenter = Math.abs(move.x - center) + Math.abs(move.y - center);
-                    score += (this.board.size - distFromCenter);
-
-                    if (this.isStarPoint(move.x, move.y)) {
-                        score += 5;
-                    }
-
-                    if (this.hasNeighborStone(move.x, move.y)) {
-                        score += 3;
-                    }
-
-                    score += Math.random() * 3;
-
-                    return { ...move, score };
-                });
-
-                scored.sort((a, b) => b.score - a.score);
-                return scored[0];
+            // 战术1：Capture（提子）- 检查落子后能否提子
+            checkCapture(x, y) {
+                const tempBoard = this.board.clone();
+                if (!tempBoard.placeStone(x, y, this.color)) return 0;
+                const captures = tempBoard.detectCaptures(x, y, this.color);
+                return captures.length;
             }
 
-            // 高级评估（困难难度）
-            evaluateAndSelectBestAdvanced(candidates) {
-                if (candidates.length === 0) return null;
+            // 战术2：Atari（打吃）- 检查落子后对方是否只剩1口气
+            checkAtari(x, y) {
+                const tempBoard = this.board.clone();
+                if (!tempBoard.placeStone(x, y, this.color)) return false;
 
-                const scored = candidates.map(move => {
-                    let score = 0;
-
-                    // 中心位置加分
-                    const center = Math.floor(this.board.size / 2);
-                    const distFromCenter = Math.abs(move.x - center) + Math.abs(move.y - center);
-                    score += (this.board.size - distFromCenter) * 1.5;
-
-                    // 星位加分更高
-                    if (this.isStarPoint(move.x, move.y)) {
-                        score += 8;
-                    }
-
-                    // 相邻棋子加分
-                    if (this.hasNeighborStone(move.x, move.y)) {
-                        const neighborCount = this.countNeighborStones(move.x, move.y);
-                        score += neighborCount * 4;
-
-                        // 检查是否能连接自己的棋子
-                        if (this.canConnectOwnStones(move.x, move.y)) {
-                            score += 6;
-                        }
-                    }
-
-                    // 边缘位置减分（避免一路）
-                    if (move.x === 0 || move.x === this.board.size - 1 ||
-                        move.y === 0 || move.y === this.board.size - 1) {
-                        score -= 3;
-                    }
-
-                    // 二路位置轻微减分
-                    if (move.x === 1 || move.x === this.board.size - 2 ||
-                        move.y === 1 || move.y === this.board.size - 2) {
-                        score -= 1;
-                    }
-
-                    // 添加少量随机性
-                    score += Math.random() * 2;
-
-                    return { ...move, score };
-                });
-
-                scored.sort((a, b) => b.score - a.score);
-                return scored[0];
-            }
-
-            // 计算相邻棋子数量
-            countNeighborStones(x, y) {
-                let count = 0;
                 const neighbors = [
                     { x: x - 1, y }, { x: x + 1, y },
                     { x, y: y - 1 }, { x, y: y + 1 }
                 ];
 
-                neighbors.forEach(n => {
-                    if (this.board.isOnBoard(n.x, n.y) && this.board.grid[n.y][n.x] !== EMPTY) {
-                        count++;
+                for (const n of neighbors) {
+                    if (tempBoard.isOnBoard(n.x, n.y) && tempBoard.grid[n.y][n.x] === this.opponentColor) {
+                        // 使用新的 getGroupLiberties 函数
+                        const result = tempBoard.getGroupLiberties(n.x, n.y);
+                        if (result.liberties === 1) return true;
                     }
-                });
-
-                return count;
+                }
+                return false;
             }
 
-            // 检查是否能连接自己的棋子
-            canConnectOwnStones(x, y) {
+            // 战术3：Rescue（救援）- 检查落子后能否增加己方棋子的气
+            checkRescue(x, y) {
+                // 找到所有己方只剩余1口气的棋子组
+                const criticalGroups = [];
+                const visited = new Set();
+
+                for (let dy = 0; dy < this.board.size; dy++) {
+                    for (let dx = 0; dx < this.board.size; dx++) {
+                        if (this.board.grid[dy][dx] === this.color) {
+                            const key = `${dx},${dy}`;
+                            if (visited.has(key)) continue;
+
+                            // 使用新的 getGroupLiberties 函数
+                            const result = this.board.getGroupLiberties(dx, dy);
+                            result.group.forEach(stone => visited.add(`${stone.x},${stone.y}`));
+
+                            if (result.liberties === 1) {
+                                criticalGroups.push(result);
+                            }
+                        }
+                    }
+                }
+
+                // 检查当前位置是否是某个危急棋子的气
+                for (const groupResult of criticalGroups) {
+                    for (const stone of groupResult.group) {
+                        const neighbors = [
+                            { x: stone.x - 1, y: stone.y },
+                            { x: stone.x + 1, y: stone.y },
+                            { x: stone.x, y: stone.y - 1 },
+                            { x: stone.x, y: stone.y + 1 }
+                        ];
+
+                        if (neighbors.some(n => n.x === x && n.y === y)) {
+                            // 验证落子后气数增加
+                            const tempBoard = this.board.clone();
+                            if (tempBoard.placeStone(x, y, this.color)) {
+                                // 使用新的 getGroupLiberties 函数
+                                const newResult = tempBoard.getGroupLiberties(stone.x, stone.y);
+                                if (newResult.liberties > 1) return true;
+                            }
+                        }
+                    }
+                }
+                return false;
+            }
+
+            // 战术4：Solid Connection（粘）- 检查是否能连接两块己方棋子
+            checkConnection(x, y) {
+                const neighbors = [
+                    { x: x - 1, y }, { x: x + 1, y },
+                    { x, y: y - 1 }, { x, y: y + 1 }
+                ];
+
+                let ownNeighborCount = 0;
+                const connectedGroups = [];
+
+                for (const n of neighbors) {
+                    if (this.board.isOnBoard(n.x, n.y) && this.board.grid[n.y][n.x] === this.color) {
+                        ownNeighborCount++;
+                        const group = this.board.getGroup(n.x, n.y);
+                        const groupKey = `${group[0].x},${group[0].y}`;
+                        if (!connectedGroups.some(g => g === groupKey)) {
+                            connectedGroups.push(groupKey);
+                        }
+                    }
+                }
+
+                // 如果有两个或更多相邻的己方棋子，且属于不同的组，可以连接
+                return ownNeighborCount >= 2 && connectedGroups.length >= 2;
+            }
+
+            // 检查3x3范围内是否有对方棋子
+            hasOpponentIn3x3(x, y) {
+                for (let dy = y - 1; dy <= y + 1; dy++) {
+                    for (let dx = x - 1; dx <= x + 1; dx++) {
+                        if (this.board.isOnBoard(dx, dy) && this.board.grid[dy][dx] === this.opponentColor) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+
+            // ==================== 眼位识别 ====================
+            // 检查是否在填自己的真眼
+            isFillingOwnEye(x, y) {
+                // 真眼的条件：四个角都被己方棋子占据，或者边界+己方棋子
+                const corners = [
+                    { x: x - 1, y: y - 1 },
+                    { x: x + 1, y: y - 1 },
+                    { x: x - 1, y: y + 1 },
+                    { x: x + 1, y: y + 1 }
+                ];
+
+                // 简化的眼位判定：检查上下左右是否都是己方棋子或边界
                 const neighbors = [
                     { x: x - 1, y }, { x: x + 1, y },
                     { x, y: y - 1 }, { x, y: y + 1 }
                 ];
 
                 let ownCount = 0;
-                neighbors.forEach(n => {
-                    if (this.board.isOnBoard(n.x, n.y) && this.board.grid[n.y][n.x] === this.color) {
+                let edgeCount = 0;
+
+                for (const n of neighbors) {
+                    if (!this.board.isOnBoard(n.x, n.y)) {
+                        edgeCount++;
+                    } else if (this.board.grid[n.y][n.x] === this.color) {
                         ownCount++;
                     }
-                });
+                }
 
-                return ownCount >= 2;
+                // 如果四个方向都是己方或边界，可能是眼
+                if (ownCount + edgeCount === 4 && ownCount >= 2) {
+                    // 进一步检查对角是否也有己方棋子
+                    let diagonalOwn = 0;
+                    for (const c of corners) {
+                        if (this.board.isOnBoard(c.x, c.y) && this.board.grid[c.y][c.x] === this.color) {
+                            diagonalOwn++;
+                        }
+                    }
+
+                    // 如果有足够的对角支持，很可能是真眼
+                    if (diagonalOwn >= 2 || (edgeCount > 0 && diagonalOwn >= 1)) {
+                        return true;
+                    }
+                }
+
+                return false;
             }
 
-            // 寻找任意有效位置（保底策略）
-            findAnyValidMove() {
-                // 优先从中心向外搜索
-                const center = Math.floor(this.board.size / 2);
-                const positions = [];
+            // ==================== Minimax 预判 ====================
+            // 1层Minimax：预判落子后对方的最佳回应
+            minimaxEvaluate(x, y, depth) {
+                if (depth === 0) return 0;
 
-                // 按照距离中心的远近排序位置
-                for (let y = 0; y < this.board.size; y++) {
-                    for (let x = 0; x < this.board.size; x++) {
-                        const distFromCenter = Math.abs(x - center) + Math.abs(y - center);
-                        positions.push({ x, y, dist: distFromCenter });
+                // 模拟己方落子
+                const tempBoard = this.board.clone();
+                if (!tempBoard.placeStone(x, y, this.color)) return -1000;
+
+                // 寻找对方最佳回应
+                let bestOpponentScore = -Infinity;
+                let opponentMoveCount = 0;
+                const maxOpponentMoves = 20; // 只评估前20个对方可能的回应
+
+                for (let dy = 0; dy < this.board.size; dy++) {
+                    for (let dx = 0; dx < this.board.size; dx++) {
+                        if (!tempBoard.isValidMove(dx, dy, this.opponentColor)) continue;
+
+                        opponentMoveCount++;
+                        if (opponentMoveCount > maxOpponentMoves) break;
+
+                        let opponentScore = 0;
+
+                        // 评估对方的这一步
+                        if (this.checkCaptureOnBoard(tempBoard, dx, dy, this.opponentColor)) {
+                            opponentScore += 100; // 对方能提子，对我们不利
+                        }
+
+                        if (this.checkAtariOnBoard(tempBoard, dx, dy, this.opponentColor, this.color)) {
+                            opponentScore += 50; // 对方能打吃
+                        }
+
+                        if (opponentScore > bestOpponentScore) {
+                            bestOpponentScore = opponentScore;
+                        }
                     }
+
+                    if (opponentMoveCount > maxOpponentMoves) break;
                 }
 
-                // 按距离排序，优先选择靠近中心的位置
-                positions.sort((a, b) => a.dist - b.dist);
+                // 返回己方得分减去对方最佳得分
+                return -bestOpponentScore * 0.5;
+            }
 
-                // 找到第一个有效位置
-                for (const pos of positions) {
-                    if (this.board.isValidMove(pos.x, pos.y, this.color)) {
-                        return { x: pos.x, y: pos.y };
+            checkCaptureOnBoard(board, x, y, color) {
+                const tempBoard = board.clone();
+                if (!tempBoard.placeStone(x, y, color)) return false;
+                const captures = tempBoard.detectCaptures(x, y, color);
+                return captures.length > 0;
+            }
+
+            checkAtariOnBoard(board, x, y, attackerColor, defenderColor) {
+                const tempBoard = board.clone();
+                if (!tempBoard.placeStone(x, y, attackerColor)) return false;
+
+                const neighbors = [
+                    { x: x - 1, y }, { x: x + 1, y },
+                    { x, y: y - 1 }, { x, y: y + 1 }
+                ];
+
+                for (const n of neighbors) {
+                    if (tempBoard.isOnBoard(n.x, n.y) && tempBoard.grid[n.y][n.x] === defenderColor) {
+                        // 使用新的 getGroupLiberties 函数
+                        const result = tempBoard.getGroupLiberties(n.x, n.y);
+                        if (result.liberties === 1) return true;
                     }
                 }
-
-                return null;
+                return false;
             }
         }
 
